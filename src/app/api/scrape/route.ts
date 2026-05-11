@@ -100,7 +100,7 @@ async function generateBriefFromProduct(productInfo: {
   price: string;
   platform: string;
 }): Promise<string> {
-  const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
+  const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash" });
 
   const prompt = `Kamu adalah content strategist fashion Indonesia. Berdasarkan info produk berikut, buatkan brief singkat untuk content creator.
 

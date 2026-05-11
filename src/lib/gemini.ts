@@ -8,7 +8,7 @@ export async function generateContent(productInfo: {
   notes?: string;
   platform?: string;
 }) {
-  const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
+  const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash" });
 
   const prompt = `Kamu adalah content creator fashion Indonesia yang expert di TikTok dan Shopee affiliate. 
 Berdasarkan informasi produk berikut, buatkan konten untuk promosi affiliate:
