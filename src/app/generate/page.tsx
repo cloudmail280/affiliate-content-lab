@@ -52,6 +52,7 @@ function GeneratePageContent() {
   const [content, setContent] = useState<GeneratedContent | null>(null);
   const [generating, setGenerating] = useState(false);
   const [copiedField, setCopiedField] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     if (productId) {
@@ -64,18 +65,24 @@ function GeneratePageContent() {
     try {
       const res = await fetch(`/api/products/${id}`);
       const data = await res.json();
+      if (data.error) {
+        setError(data.error);
+        return;
+      }
       setProduct(data);
-      if (data.generated_content) {
+      if (data.generated_content && data.generated_content.hooks) {
         setContent(data.generated_content);
       }
-    } catch (error) {
-      console.error("Error fetching product:", error);
+    } catch (err) {
+      console.error("Error fetching product:", err);
+      setError("Gagal memuat produk.");
     }
   }
 
   async function handleGenerate() {
     if (!productId) return;
     setGenerating(true);
+    setError(null);
     try {
       const res = await fetch(`/api/generate`, {
         method: "POST",
@@ -83,9 +90,21 @@ function GeneratePageContent() {
         body: JSON.stringify({ productId }),
       });
       const data = await res.json();
-      setContent(data);
-    } catch (error) {
-      console.error("Error generating content:", error);
+
+      if (data.error) {
+        setError(data.error);
+        return;
+      }
+
+      // Validate response has expected fields
+      if (data.hooks && Array.isArray(data.hooks)) {
+        setContent(data);
+      } else {
+        setError("Format response AI tidak valid. Coba generate ulang.");
+      }
+    } catch (err) {
+      console.error("Error generating content:", err);
+      setError("Gagal generate konten. Coba lagi.");
     } finally {
       setGenerating(false);
     }
@@ -177,7 +196,29 @@ function GeneratePageContent() {
         )}
       </div>
 
-      {!content && (
+      {error && (
+        <Card className="border-destructive">
+          <CardContent className="p-4">
+            <p className="text-sm text-destructive">{error}</p>
+            <Button
+              onClick={handleGenerate}
+              variant="outline"
+              size="sm"
+              className="mt-3"
+              disabled={generating}
+            >
+              {generating ? (
+                <Loader2 className="mr-1 h-3 w-3 animate-spin" />
+              ) : (
+                <RefreshCw className="mr-1 h-3 w-3" />
+              )}
+              Coba Lagi
+            </Button>
+          </CardContent>
+        </Card>
+      )}
+
+      {!content && !error && (
         <Card>
           <CardContent className="p-6 text-center">
             <Sparkles className="h-10 w-10 mx-auto text-primary mb-3" />
