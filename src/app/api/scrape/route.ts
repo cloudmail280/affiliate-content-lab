@@ -1,9 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
-import { GoogleGenerativeAI } from "@google/generative-ai";
+import Groq from "groq-sdk";
 
 export const dynamic = "force-dynamic";
 
-const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY!);
+const groq = new Groq({
+  apiKey: process.env.GROQ_API_KEY,
+});
 
 function detectPlatform(url: string): string {
   if (url.includes("shopee")) return "shopee";
@@ -100,8 +102,6 @@ async function generateBriefFromProduct(productInfo: {
   price: string;
   platform: string;
 }): Promise<string> {
-  const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash" });
-
   const prompt = `Kamu adalah content strategist fashion Indonesia. Berdasarkan info produk berikut, buatkan brief singkat untuk content creator.
 
 Nama Produk: ${productInfo.title}
@@ -116,8 +116,14 @@ Buatkan brief dalam format (TANPA heading/markdown, langsung teks):
 
 Bahasa Indonesia casual. Maksimal 5 baris. Langsung to the point.`;
 
-  const result = await model.generateContent(prompt);
-  return result.response.text();
+  const completion = await groq.chat.completions.create({
+    messages: [{ role: "user", content: prompt }],
+    model: "llama-3.3-70b-versatile",
+    temperature: 0.7,
+    max_tokens: 500,
+  });
+
+  return completion.choices[0]?.message?.content || "";
 }
 
 export async function POST(request: NextRequest) {
@@ -149,11 +155,10 @@ export async function POST(request: NextRequest) {
       description = meta.description || "";
     } catch (e) {
       console.error("HTML fetch failed:", e);
-      // Continue — will return what we have
     }
   }
 
-  // Step 3: Generate brief with Gemini if we have product name
+  // Step 3: Generate brief with Groq if we have product name
   let notes = "";
   if (productName) {
     try {

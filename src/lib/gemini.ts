@@ -1,6 +1,8 @@
-import { GoogleGenerativeAI } from "@google/generative-ai";
+import Groq from "groq-sdk";
 
-const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY!);
+const groq = new Groq({
+  apiKey: process.env.GROQ_API_KEY,
+});
 
 export async function generateContent(productInfo: {
   name: string;
@@ -8,8 +10,6 @@ export async function generateContent(productInfo: {
   notes?: string;
   platform?: string;
 }) {
-  const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash" });
-
   const prompt = `Kamu adalah content creator fashion Indonesia yang expert di TikTok dan Shopee affiliate. 
 Berdasarkan informasi produk berikut, buatkan konten untuk promosi affiliate:
 
@@ -18,7 +18,7 @@ ${productInfo.price ? `Harga: ${productInfo.price}` : ""}
 ${productInfo.notes ? `Notes tambahan: ${productInfo.notes}` : ""}
 ${productInfo.platform ? `Platform: ${productInfo.platform}` : ""}
 
-Buatkan dalam format JSON (tanpa markdown code block) dengan struktur:
+Buatkan dalam format JSON (tanpa markdown code block, langsung mulai dari { ) dengan struktur:
 {
   "hooks": [10 hook opening yang catchy untuk video pendek, masing-masing 1-2 kalimat],
   "captions": [5 caption untuk posting, include emoji, 2-3 kalimat],
@@ -33,11 +33,17 @@ Pastikan:
 - Sesuai tone anak muda/gen-z
 - Fokus pada pain point dan benefit
 - Hook harus bikin penasaran
-- Hashtag mix antara broad dan niche fashion`;
+- Hashtag mix antara broad dan niche fashion
+- HANYA output JSON, tanpa teks lain`;
 
-  const result = await model.generateContent(prompt);
-  const response = result.response;
-  const text = response.text();
+  const completion = await groq.chat.completions.create({
+    messages: [{ role: "user", content: prompt }],
+    model: "llama-3.3-70b-versatile",
+    temperature: 0.7,
+    max_tokens: 4000,
+  });
+
+  const text = completion.choices[0]?.message?.content || "";
 
   // Parse JSON from response
   const jsonMatch = text.match(/\{[\s\S]*\}/);
