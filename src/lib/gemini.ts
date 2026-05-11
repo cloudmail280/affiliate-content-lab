@@ -1,0 +1,49 @@
+import { GoogleGenerativeAI } from "@google/generative-ai";
+
+const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY!);
+
+export async function generateContent(productInfo: {
+  name: string;
+  price?: string;
+  notes?: string;
+  platform?: string;
+}) {
+  const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
+
+  const prompt = `Kamu adalah content creator fashion Indonesia yang expert di TikTok dan Shopee affiliate. 
+Berdasarkan informasi produk berikut, buatkan konten untuk promosi affiliate:
+
+Nama Produk: ${productInfo.name}
+${productInfo.price ? `Harga: ${productInfo.price}` : ""}
+${productInfo.notes ? `Notes tambahan: ${productInfo.notes}` : ""}
+${productInfo.platform ? `Platform: ${productInfo.platform}` : ""}
+
+Buatkan dalam format JSON (tanpa markdown code block) dengan struktur:
+{
+  "hooks": [10 hook opening yang catchy untuk video pendek, masing-masing 1-2 kalimat],
+  "captions": [5 caption untuk posting, include emoji, 2-3 kalimat],
+  "hashtags": [20 hashtag relevan tanpa #, campuran populer dan niche],
+  "content_angles": [3 angle/sudut pandang konten yang berbeda, masing-masing 2-3 kalimat penjelasan],
+  "cover_texts": [5 teks untuk cover/thumbnail video, maksimal 5 kata],
+  "cta": [5 call-to-action yang engaging, 1 kalimat]
+}
+
+Pastikan:
+- Bahasa Indonesia casual/gaul yang relatable
+- Sesuai tone anak muda/gen-z
+- Fokus pada pain point dan benefit
+- Hook harus bikin penasaran
+- Hashtag mix antara broad dan niche fashion`;
+
+  const result = await model.generateContent(prompt);
+  const response = result.response;
+  const text = response.text();
+
+  // Parse JSON from response
+  const jsonMatch = text.match(/\{[\s\S]*\}/);
+  if (!jsonMatch) {
+    throw new Error("Failed to parse AI response");
+  }
+
+  return JSON.parse(jsonMatch[0]);
+}
