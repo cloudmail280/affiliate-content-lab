@@ -5,24 +5,54 @@ export const dynamic = "force-dynamic";
 
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY!);
 
+function detectPlatform(url: string): string {
+  if (url.includes("shopee")) return "shopee";
+  if (url.includes("tiktok") || url.includes("tokopedia.com")) return "tiktok";
+  return "";
+}
+
+function extractFromUrlParams(url: string): {
+  title: string;
+  image: string;
+} {
+  try {
+    const urlObj = new URL(url);
+
+    // TikTok Shop links have og_info in URL params
+    const ogInfoRaw = urlObj.searchParams.get("og_info");
+    if (ogInfoRaw) {
+      const ogInfo = JSON.parse(ogInfoRaw);
+      return {
+        title: ogInfo.title || "",
+        image: ogInfo.image || "",
+      };
+    }
+
+    return { title: "", image: "" };
+  } catch {
+    return { title: "", image: "" };
+  }
+}
+
 async function fetchPageContent(url: string): Promise<string> {
   try {
     const res = await fetch(url, {
       headers: {
         "User-Agent":
           "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
-        "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+        Accept:
+          "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
         "Accept-Language": "id-ID,id;q=0.9,en;q=0.8",
       },
       redirect: "follow",
+      signal: AbortSignal.timeout(10000),
     });
 
     if (!res.ok) {
       throw new Error(`HTTP ${res.status}`);
     }
 
-    const html = await res.text();
-    return html;
+    return await res.text();
   } catch (error) {
     console.error("Fetch error:", error);
     throw new Error("Gagal mengakses link produk");
@@ -35,14 +65,15 @@ function extractMetaFromHTML(html: string): {
   price: string;
   image: string;
 } {
-  // Extract from meta tags and common patterns
   const titleMatch =
     html.match(/<meta[^>]*property="og:title"[^>]*content="([^"]*)"/) ||
+    html.match(/<meta[^>]*content="([^"]*)"[^>]*property="og:title"/) ||
     html.match(/<meta[^>]*name="title"[^>]*content="([^"]*)"/) ||
     html.match(/<title[^>]*>([^<]*)<\/title>/);
 
   const descMatch =
     html.match(/<meta[^>]*property="og:description"[^>]*content="([^"]*)"/) ||
+    html.match(/<meta[^>]*content="([^"]*)"[^>]*property="og:description"/) ||
     html.match(/<meta[^>]*name="description"[^>]*content="([^"]*)"/) ||
     html.match(/<meta[^>]*content="([^"]*)"[^>]*name="description"/);
 
@@ -74,9 +105,9 @@ async function generateBriefFromProduct(productInfo: {
   const prompt = `Kamu adalah content strategist fashion Indonesia. Berdasarkan info produk berikut, buatkan brief singkat untuk content creator.
 
 Nama Produk: ${productInfo.title}
-Deskripsi: ${productInfo.description}
-Harga: ${productInfo.price}
-Platform: ${productInfo.platform}
+${productInfo.description ? `Deskripsi: ${productInfo.description}` : ""}
+${productInfo.price ? `Harga: ${productInfo.price}` : ""}
+Platform: ${productInfo.platform || "TikTok/Shopee"}
 
 Buatkan brief dalam format (TANPA heading/markdown, langsung teks):
 - Target audience (1 kalimat)
@@ -97,55 +128,60 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "URL is required" }, { status: 400 });
   }
 
-  // Detect platform
-  let platform = "";
-  if (url.includes("shopee")) platform = "shopee";
-  else if (url.includes("tiktok")) platform = "tiktok";
+  const platform = detectPlatform(url);
 
-  try {
-    // Fetch and parse HTML
-    const html = await fetchPageContent(url);
-    const meta = extractMetaFromHTML(html);
+  // Step 1: Try to extract info from URL params (TikTok Shop links have og_info)
+  const urlParams = extractFromUrlParams(url);
 
-    // If we got product info, generate brief with Gemini
-    let notes = "";
-    if (meta.title || meta.description) {
-      try {
-        notes = await generateBriefFromProduct({
-          title: meta.title,
-          description: meta.description,
-          price: meta.price,
-          platform,
-        });
-      } catch (e) {
-        console.error("Brief generation error:", e);
-        // Non-fatal, continue without notes
-      }
+  let productName = urlParams.title;
+  let productPrice = "";
+  let productImage = urlParams.image;
+  let description = "";
+
+  // Step 2: If no info from URL params, try fetching HTML
+  if (!productName) {
+    try {
+      const html = await fetchPageContent(url);
+      const meta = extractMetaFromHTML(html);
+      productName = meta.title || "";
+      productPrice = meta.price || "";
+      productImage = meta.image || "";
+      description = meta.description || "";
+    } catch (e) {
+      console.error("HTML fetch failed:", e);
+      // Continue — will return what we have
     }
-
-    return NextResponse.json({
-      productName: meta.title || "",
-      productPrice: meta.price ? `Rp ${meta.price}` : "",
-      productImage: meta.image || "",
-      description: meta.description || "",
-      notes,
-      platform,
-    });
-  } catch (error) {
-    // Fallback: just return platform detection, user fills manually
-    const message =
-      error instanceof Error ? error.message : "Gagal scrape produk";
-    return NextResponse.json(
-      {
-        productName: "",
-        productPrice: "",
-        productImage: "",
-        description: "",
-        notes: "",
-        platform,
-        warning: message,
-      },
-      { status: 200 }
-    );
   }
+
+  // Step 3: Generate brief with Gemini if we have product name
+  let notes = "";
+  if (productName) {
+    try {
+      notes = await generateBriefFromProduct({
+        title: productName,
+        description,
+        price: productPrice,
+        platform,
+      });
+    } catch (e) {
+      console.error("Brief generation error:", e);
+    }
+  }
+
+  // Format price
+  const formattedPrice = productPrice
+    ? productPrice.startsWith("Rp")
+      ? productPrice
+      : `Rp ${productPrice}`
+    : "";
+
+  return NextResponse.json({
+    productName: productName || "",
+    productPrice: formattedPrice,
+    productImage: productImage || "",
+    description: description || "",
+    notes,
+    platform,
+    warning: productName ? "" : "Gagal ambil info produk. Isi manual ya.",
+  });
 }

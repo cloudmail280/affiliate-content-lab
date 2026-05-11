@@ -26,13 +26,13 @@ export default function AddProductPage() {
   // Auto-detect platform from URL
   function detectPlatform(url: string) {
     if (url.includes("shopee")) return "shopee";
-    if (url.includes("tiktok")) return "tiktok";
+    if (url.includes("tiktok") || url.includes("tokopedia")) return "tiktok";
     return "";
   }
 
   function isValidProductUrl(url: string) {
     return (
-      (url.includes("shopee") || url.includes("tiktok")) &&
+      (url.includes("shopee") || url.includes("tiktok") || url.includes("tokopedia")) &&
       (url.startsWith("http://") || url.startsWith("https://"))
     );
   }
