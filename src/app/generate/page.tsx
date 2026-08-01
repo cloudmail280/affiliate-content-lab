@@ -2,6 +2,7 @@
 
 import { Suspense, useState, useEffect } from "react";
 import { useSearchParams } from "next/navigation";
+import Image from "next/image";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -32,6 +33,7 @@ type Product = {
   id: string;
   product_name: string;
   product_price: string | null;
+  product_image_url: string | null;
   notes: string | null;
   platform: string | null;
   generated_content: GeneratedContent | null;
@@ -163,18 +165,31 @@ function GeneratePageContent() {
 
   return (
     <div className="p-4 space-y-4">
-      <div className="pt-2">
-        <h1 className="text-2xl font-bold">Generate Konten</h1>
-        {product && (
-          <p className="text-muted-foreground text-sm mt-1">
-            {product.product_name}
-            {product.platform && (
-              <Badge variant="secondary" className="ml-2 capitalize">
-                {product.platform}
-              </Badge>
-            )}
-          </p>
+      <div className="pt-2 space-y-3">
+        {product?.product_image_url && (
+          <div className="relative w-full aspect-square rounded-lg overflow-hidden border bg-muted">
+            <Image
+              src={product.product_image_url}
+              alt={product.product_name}
+              fill
+              className="object-cover"
+              sizes="100vw"
+            />
+          </div>
         )}
+        <div>
+          <h1 className="text-2xl font-bold">Generate Konten</h1>
+          {product && (
+            <p className="text-muted-foreground text-sm mt-1">
+              {product.product_name}
+              {product.platform && (
+                <Badge variant="secondary" className="ml-2 capitalize">
+                  {product.platform}
+                </Badge>
+              )}
+            </p>
+          )}
+        </div>
       </div>
 
       {!content && (

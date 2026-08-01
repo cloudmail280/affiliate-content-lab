@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import Link from "next/link";
+import Image from "next/image";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -11,12 +12,14 @@ import {
   Archive,
   CheckCircle2,
   FileText,
+  ImagePlus,
 } from "lucide-react";
 
 type Product = {
   id: string;
   product_name: string;
   product_price: string | null;
+  product_image_url: string | null;
   platform: string | null;
   status: "draft" | "posted" | "archived";
   created_at: string;
@@ -115,7 +118,22 @@ export default function LibraryPage() {
             return (
               <Card key={product.id} className="overflow-hidden">
                 <CardContent className="p-3">
-                  <div className="flex items-start justify-between gap-2">
+                  <div className="flex items-start gap-3">
+                    {product.product_image_url ? (
+                      <div className="relative h-16 w-16 shrink-0 rounded-md overflow-hidden border bg-muted">
+                        <Image
+                          src={product.product_image_url}
+                          alt={product.product_name}
+                          fill
+                          className="object-cover"
+                          sizes="64px"
+                        />
+                      </div>
+                    ) : (
+                      <div className="h-16 w-16 shrink-0 rounded-md bg-muted flex items-center justify-center">
+                        <ImagePlus className="h-5 w-5 text-muted-foreground" />
+                      </div>
+                    )}
                     <div className="flex-1 min-w-0">
                       <Link
                         href={`/generate?id=${product.id}`}

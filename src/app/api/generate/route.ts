@@ -32,12 +32,13 @@ export async function POST(request: NextRequest) {
   }
 
   try {
-    // Generate content using Gemini
+    // Generate content using Gemini (multimodal when an image is present)
     const generatedContent = await generateContent({
       name: product.product_name,
       price: product.product_price || undefined,
       notes: product.notes || undefined,
       platform: product.platform || undefined,
+      imageUrl: product.product_image_url || undefined,
     });
 
     // Save generated content to product
