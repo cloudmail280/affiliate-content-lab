@@ -187,7 +187,7 @@ export default function AddProductPage() {
               </div>
             ) : (
               <label
-n                htmlFor="product-image"
+                htmlFor="product-image"
                 className="flex flex-col items-center justify-center gap-2 w-full aspect-square rounded-lg border border-dashed cursor-pointer hover:bg-muted/50 transition-colors text-muted-foreground"
               >
                 <ImagePlus className="h-8 w-8" />
