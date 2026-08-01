@@ -2,15 +2,32 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import Image from "next/image";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Link2, Upload, Sparkles, Loader2 } from "lucide-react";
+import {
+  Link2,
+  Upload,
+  Sparkles,
+  Loader2,
+  ImagePlus,
+  X,
+  AlertCircle,
+} from "lucide-react";
+import { compressProductImage } from "@/lib/compress-image";
+
+const MAX_SIZE = 4 * 1024 * 1024; // 4MB (client pre-check; server is the safety net)
+const ALLOWED_TYPES = ["image/jpeg", "image/png", "image/webp"];
 
 export default function AddProductPage() {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [statusText, setStatusText] = useState("");
+  const [imageFile, setImageFile] = useState<File | null>(null);
+  const [imagePreview, setImagePreview] = useState<string | null>(null);
   const [formData, setFormData] = useState({
     productUrl: "",
     productName: "",
@@ -34,25 +51,78 @@ export default function AddProductPage() {
     });
   }
 
+  function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
+    setError(null);
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (!ALLOWED_TYPES.includes(file.type)) {
+      setError("Format foto harus JPG, PNG, atau WEBP");
+      return;
+    }
+    if (file.size > MAX_SIZE) {
+      setError("Ukuran foto maksimal 4MB");
+      return;
+    }
+
+    setImageFile(file);
+    setImagePreview(URL.createObjectURL(file));
+  }
+
+  function handleRemoveImage() {
+    setImageFile(null);
+    if (imagePreview) URL.revokeObjectURL(imagePreview);
+    setImagePreview(null);
+  }
+
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (!formData.productName) return;
 
+    setError(null);
     setLoading(true);
+
     try {
+      let productImageUrl: string | null = null;
+
+      // Compress, then upload the image (if present), then create the product
+      if (imageFile) {
+        setStatusText("Mengompres foto...");
+        const compressed = await compressProductImage(imageFile, (p) => {
+          setStatusText(`Mengompres foto... ${p}%`);
+        });
+
+        setStatusText("Mengupload...");
+        const fd = new FormData();
+        fd.append("file", compressed);
+        const upRes = await fetch("/api/upload", { method: "POST", body: fd });
+        const upData = await upRes.json();
+        if (!upRes.ok || !upData.url) {
+          setError(upData.error || "Gagal upload foto");
+          setLoading(false);
+          return;
+        }
+        productImageUrl = upData.url;
+      }
+
+      setStatusText("Menyimpan...");
       const res = await fetch("/api/products", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(formData),
+        body: JSON.stringify({ ...formData, productImageUrl }),
       });
       const data = await res.json();
       if (data.id) {
         router.push(`/generate?id=${data.id}`);
+      } else {
+        setError(data.error || "Gagal menyimpan produk");
       }
     } catch (error) {
       console.error("Error saving product:", error);
+      setError("Terjadi kesalahan, coba lagi");
     } finally {
       setLoading(false);
+      setStatusText("");
     }
   }
 
@@ -64,6 +134,13 @@ export default function AddProductPage() {
           Paste link atau input manual untuk generate konten
         </p>
       </div>
+
+      {error && (
+        <div className="flex items-start gap-2 p-3 rounded-md bg-destructive/10 text-destructive text-sm">
+          <AlertCircle className="h-4 w-4 shrink-0 mt-0.5" />
+          <span>{error}</span>
+        </div>
+      )}
 
       <form onSubmit={handleSubmit} className="space-y-4">
         <Card>
@@ -87,6 +164,57 @@ export default function AddProductPage() {
                 </span>
               </p>
             )}
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base flex items-center gap-2">
+              <ImagePlus className="h-4 w-4" />
+              Foto Produk
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            {imagePreview ? (
+              <div className="relative w-full aspect-square rounded-lg overflow-hidden border">
+                <Image
+                  src={imagePreview}
+                  alt="Preview produk"
+                  fill
+                  className="object-cover"
+                  sizes="100vw"
+                  unoptimized
+                />
+                <Button
+                  type="button"
+                  variant="secondary"
+                  size="icon"
+                  className="absolute top-2 right-2 h-8 w-8"
+                  onClick={handleRemoveImage}
+                >
+                  <X className="h-4 w-4" />
+                </Button>
+              </div>
+            ) : (
+              <label
+                htmlFor="product-image"
+                className="flex flex-col items-center justify-center gap-2 w-full aspect-square rounded-lg border border-dashed cursor-pointer hover:bg-muted/50 transition-colors text-muted-foreground"
+              >
+                <ImagePlus className="h-8 w-8" />
+                <span className="text-sm">Klik untuk upload foto produk</span>
+                <span className="text-xs">JPG, PNG, WEBP · maks 4MB</span>
+                <input
+                  id="product-image"
+                  type="file"
+                  accept="image/jpeg,image/png,image/webp"
+                  className="hidden"
+                  onChange={handleFileChange}
+                />
+              </label>
+            )}
+            <p className="text-xs text-muted-foreground mt-2">
+              Foto dikompres otomatis & dikirim ke AI untuk analisis visual → konten lebih tajam
+            </p>
           </CardContent>
         </Card>
 
@@ -176,7 +304,7 @@ export default function AddProductPage() {
           {loading ? (
             <>
               <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-              Menyimpan...
+              {statusText || "Menyimpan..."}
             </>
           ) : (
             <>

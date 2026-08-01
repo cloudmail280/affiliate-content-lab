@@ -5,6 +5,7 @@ Web app personal untuk affiliator TikTok/Shopee niche fashion. Auto-generate kon
 ## Features (MVP)
 
 - **Tambah Produk**: Paste link Shopee/TikTok Shop + input manual
+- **Upload Foto Produk**: Upload foto → AI analisis visual (multimodal Gemini)
 - **Auto Generate**: 10 hook, 5 caption, 20 hashtag, 3 content angle, 5 cover text, 5 CTA
 - **Copy-Paste Mode**: Semua bahan siap copy per field
 - **Library**: Semua produk tersimpan dengan status draft/posted/archived
@@ -13,8 +14,8 @@ Web app personal untuk affiliator TikTok/Shopee niche fashion. Auto-generate kon
 
 - **Framework**: Next.js 14 (App Router)
 - **Styling**: Tailwind CSS + shadcn/ui
-- **Database**: Supabase (PostgreSQL)
-- **AI**: Google Gemini API (gemini-1.5-flash)
+- **Database**: Supabase (PostgreSQL + Storage)
+- **AI**: Google Gemini API (gemini-1.5-flash, multimodal)
 - **Deploy**: Vercel
 
 ## Setup
@@ -30,8 +31,8 @@ pnpm install
 ### 2. Setup Supabase
 
 1. Buat project di [supabase.com](https://supabase.com)
-2. Jalankan SQL di `supabase/schema.sql` via SQL Editor
-3. Copy URL dan Anon Key dari Settings > API
+2. Jalankan SQL di `supabase/schema.sql` via SQL Editor (membuat tabel `products` + storage bucket `product-images`)
+3. Copy URL, Anon Key, dan **Service Role Key** dari Settings > API
 
 ### 3. Setup Gemini API
 
@@ -44,7 +45,7 @@ pnpm install
 cp .env.local.example .env.local
 ```
 
-Isi semua value di `.env.local`
+Isi semua value di `.env.local` (termasuk `SUPABASE_SERVICE_ROLE_KEY` untuk upload foto)
 
 ### 5. Run Development
 
@@ -64,16 +65,17 @@ Buka [http://localhost:3000](http://localhost:3000)
 ## Alur Penggunaan
 
 1. Buka app → Tambah Produk
-2. Paste link Shopee/TikTok (opsional) + isi nama produk + notes
-3. Klik "Simpan & Generate Konten"
-4. AI otomatis generate semua bahan konten
-5. Copy-paste per item ke TikTok/Shopee
-6. Update status produk di Library (draft → posted → archived)
+2. (Opsional) Upload foto produk untuk analisis visual AI
+3. Paste link Shopee/TikTok (opsional) + isi nama produk + notes
+4. Klik "Simpan & Generate Konten"
+5. AI otomatis generate semua bahan konten (pakai foto + info teks)
+6. Copy-paste per item ke TikTok/Shopee
+7. Update status produk di Library (draft → posted → archived)
 
 ## Roadmap
 
 - [ ] Auth (multi-user)
-- [ ] Upload foto produk
+- [x] Upload foto produk (+ multimodal Gemini)
 - [ ] Video script analyzer
 - [ ] Analytics dashboard
 - [ ] Bulk generate

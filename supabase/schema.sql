@@ -28,3 +28,18 @@ create index if not exists idx_products_created_at on products(created_at desc);
 -- alter table products enable row level security;
 -- create policy "Users can manage their own products" on products
 --   for all using (auth.uid() = user_id);
+
+-- ===================================================================
+-- Product images storage bucket (public read for MVP)
+-- Uploads happen server-side via SUPABASE_SERVICE_ROLE_KEY (bypasses RLS),
+-- so no insert policy is required. Public read lets the stored URL be
+-- fetched directly by the generate route (to send the image to Gemini).
+-- ===================================================================
+insert into storage.buckets (id, name, public)
+values ('product-images', 'product-images', true)
+on conflict (id) do nothing;
+
+-- Allow public read of product images
+create policy "Public read product images"
+  on storage.objects for select
+  using (bucket_id = 'product-images');

@@ -29,6 +29,7 @@ export async function POST(request: NextRequest) {
       product_url: body.productUrl || null,
       product_name: body.productName,
       product_price: body.productPrice || null,
+      product_image_url: body.productImageUrl || null,
       notes: body.notes || null,
       platform: body.platform || null,
       status: "draft",

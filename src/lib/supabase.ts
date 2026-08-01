@@ -1,7 +1,9 @@
 import { createClient, SupabaseClient } from "@supabase/supabase-js";
 
 let _supabase: SupabaseClient | null = null;
+let _serviceSupabase: SupabaseClient | null = null;
 
+// Anon client (used for general DB queries, matches existing MVP behavior)
 export function getSupabase(): SupabaseClient {
   if (!_supabase) {
     const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -16,6 +18,25 @@ export function getSupabase(): SupabaseClient {
     _supabase = createClient(supabaseUrl, supabaseAnonKey);
   }
   return _supabase;
+}
+
+// Service role client (server-only, bypasses RLS — used for storage uploads)
+export function getServiceSupabase(): SupabaseClient {
+  if (!_serviceSupabase) {
+    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+    const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+
+    if (!supabaseUrl || !serviceRoleKey) {
+      throw new Error(
+        "Missing Supabase service role key. Please set SUPABASE_SERVICE_ROLE_KEY for storage uploads."
+      );
+    }
+
+    _serviceSupabase = createClient(supabaseUrl, serviceRoleKey, {
+      auth: { persistSession: false },
+    });
+  }
+  return _serviceSupabase;
 }
 
 export type Product = {
