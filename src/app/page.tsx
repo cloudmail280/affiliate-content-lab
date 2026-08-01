@@ -16,14 +16,16 @@ import {
   X,
   AlertCircle,
 } from "lucide-react";
+import { compressProductImage } from "@/lib/compress-image";
 
-const MAX_SIZE = 4 * 1024 * 1024; // 4MB
+const MAX_SIZE = 4 * 1024 * 1024; // 4MB (client pre-check; server is the safety net)
 const ALLOWED_TYPES = ["image/jpeg", "image/png", "image/webp"];
 
 export default function AddProductPage() {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [statusText, setStatusText] = useState("");
   const [imageFile, setImageFile] = useState<File | null>(null);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
   const [formData, setFormData] = useState({
@@ -83,10 +85,16 @@ export default function AddProductPage() {
     try {
       let productImageUrl: string | null = null;
 
-      // Upload image first (if present), then create the product with its URL
+      // Compress, then upload the image (if present), then create the product
       if (imageFile) {
+        setStatusText("Mengompres foto...");
+        const compressed = await compressProductImage(imageFile, (p) => {
+          setStatusText(`Mengompres foto... ${p}%`);
+        });
+
+        setStatusText("Mengupload...");
         const fd = new FormData();
-        fd.append("file", imageFile);
+        fd.append("file", compressed);
         const upRes = await fetch("/api/upload", { method: "POST", body: fd });
         const upData = await upRes.json();
         if (!upRes.ok || !upData.url) {
@@ -97,6 +105,7 @@ export default function AddProductPage() {
         productImageUrl = upData.url;
       }
 
+      setStatusText("Menyimpan...");
       const res = await fetch("/api/products", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -113,6 +122,7 @@ export default function AddProductPage() {
       setError("Terjadi kesalahan, coba lagi");
     } finally {
       setLoading(false);
+      setStatusText("");
     }
   }
 
@@ -203,7 +213,7 @@ export default function AddProductPage() {
               </label>
             )}
             <p className="text-xs text-muted-foreground mt-2">
-              Foto dikirim ke AI untuk analisis visual → konten lebih tajam
+              Foto dikompres otomatis & dikirim ke AI untuk analisis visual → konten lebih tajam
             </p>
           </CardContent>
         </Card>
@@ -294,7 +304,7 @@ export default function AddProductPage() {
           {loading ? (
             <>
               <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-              Menyimpan...
+              {statusText || "Menyimpan..."}
             </>
           ) : (
             <>
